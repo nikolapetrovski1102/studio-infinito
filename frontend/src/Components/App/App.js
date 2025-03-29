@@ -29,8 +29,15 @@ const messaging = getMessaging(app);
 function App() {
   const [showPrompt, setShowPrompt] = React.useState(false);
   const [permissionState, setPermissionState] = React.useState("default");
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   
   useEffect(() => {
+    // if (isSafari) {
+    //   alert("Safari does not support push notifications. Please use a different browser.");
+    //   setShowPrompt(false);
+    //   return;
+    // }
+
     if (typeof Notification !== "undefined") {
       setPermissionState(Notification.permission);
 

@@ -191,7 +191,7 @@ const RegisterForm = () => {
 
         <div className="relative flex w-full">
           <div className="flex items-center bg-blue-gray-500/10 rounded-l-md px-3">
-            <span className="text-blue-gray-700">+389</span>
+            <span className="text-blue-gray-700 dark:text-dark-text-primary">+389</span>
           </div>
           <Input
             name="phone"
