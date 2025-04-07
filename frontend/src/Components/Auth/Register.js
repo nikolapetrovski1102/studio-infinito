@@ -3,16 +3,15 @@ import { motion } from "framer-motion";
 import {
   Card,
   Input,
-  Checkbox,
   Button,
   Typography,
-  IconButton,
+  Select,
+  Option
 } from "@material-tailwind/react";
 import FullScreenLoader from "../FullScrennLoader/FullScreenLoader";
 import Notification from "../Home/Notification";
 import { HiEye, HiEyeOff } from "react-icons/hi";
 import { Axios } from "../Axios";
-import { notification } from "antd";
 
 const axios = new Axios();
 
@@ -21,6 +20,7 @@ const RegisterForm = () => {
     firstname: "",
     lastname: "",
     email: "",
+    gender: "",
     phone: "",
     password: "",
     confirmPassword: "",
@@ -36,21 +36,23 @@ const RegisterForm = () => {
     head_message: ""
   });
 
-  const handleChange = (e) => {
-    let { name, value } = e.target;
-
-    if (name === "phone") {
-      value = value.replace(/\D/g, "");
-      if (value.length > 8) value = value.slice(0, 6);
+  const handleChange = (e, name = null) => {
+    if (e.target) {
+      const { name, value } = e.target;
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    } else if (name) {
+      setFormData({
+        ...formData,
+        [name]: e,
+      });
     }
-
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
-
-    setErrors({ ...errors, [name]: "" });
+  
+    setErrors({ ...errors, [name || e.target.name]: "" });
   };
+  
 
   useEffect( () => {
 
@@ -65,8 +67,11 @@ const RegisterForm = () => {
   const validateForm = () => {
     let newErrors = {};
 
+    console.log(formData);
+
     if (!formData.firstname) newErrors.firstname = "Име е задолжително.";
     if (!formData.lastname) newErrors.lastname = "Презиме е задолжително.";
+    if (!formData.gender) newErrors.gender = "Полот е задолжително.";
     if (formData.email !== "" && !/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(formData.email)){
       newErrors.email = "Невалидна емаил адреса.";
     }
@@ -82,7 +87,7 @@ const RegisterForm = () => {
     } else if (!/^(?=.*[a-zA-Z])(?=.*[0-9]).{8,}$/.test(formData.password)) {
       newErrors.password =
         "Пасвордот мора да има најмалку 8 карактери, вклучувајќи букви и броеви.";
-    }    
+    }
 
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = "Потврди пасворд е задолжително.";
@@ -149,7 +154,7 @@ const RegisterForm = () => {
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           {[{ name: "firstname", label: "Име", type: "text" },
             { name: "lastname", label: "Презиме", type: "text" },
-            { name: "email", label: "Електронска Пошта", type: "email" }
+            { name: "email", label: "Електронска Пошта", type: "email" },
           ].map(({ name, label, type }, index) => (
             <div key={index}>
               <Typography
@@ -181,6 +186,39 @@ const RegisterForm = () => {
               )}
             </div>
           ))}
+          <div className="relative flex flex-col w-full">
+          <Typography
+              variant="h6"
+              className="text-gray-900 dark:text-dark-text-primary mb-2"
+          >
+              Пол
+          </Typography>
+
+          <div className="relative flex w-full">
+            <Select 
+              className="dark:text-white text-gray-900"
+              value={formData.gender}
+              onChange={(value) => handleChange(value, "gender")}
+            >
+              <Option value="1" >Машки</Option>
+              <Option value="2" >Женски</Option>
+            </Select>
+          </div>
+
+          {/* Error message */}
+          <div className="mt-1">
+              {errors.gender && (
+              <motion.p
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="text-sm text-red-500"
+              >
+                  {errors.gender}
+              </motion.p>
+              )}
+          </div>
+        </div>
         <div className="relative flex flex-col w-full">
         <Typography
             variant="h6"
@@ -196,7 +234,8 @@ const RegisterForm = () => {
           <Input
             name="phone"
             type="tel"
-            placeholder="Mobile Number"
+            maxLength={8}
+            placeholder="71234567"
             value={formData.phone}
             onChange={handleChange}
             className="w-full py-3 !rounded-l-none"
@@ -245,12 +284,13 @@ const RegisterForm = () => {
                     className="cursor-pointer" 
                     onClick={(e) => {
                       e.stopPropagation();
-                      name === "password" 
-                        ? setShowPassword(!showPassword) 
-                        : setShowConfirmPassword(!showConfirmPassword);
+                      name === "password"
+                        && setShowPassword(!showPassword) 
+                      name === "confirmPassword"
+                        && setShowConfirmPassword(!showConfirmPassword)
                     }}
                   >
-                    {name === "password" 
+                    {name === "password"
                       ? (showPassword ? <HiEyeOff className="w-5 h-5" /> : <HiEye className="w-5 h-5" />)
                       : (showConfirmPassword ? <HiEyeOff className="w-5 h-5" /> : <HiEye className="w-5 h-5" />)
                     }

@@ -22,6 +22,7 @@ import { XCircleIcon } from '@heroicons/react/24/outline';
 import { BellIcon } from '@heroicons/react/24/solid';
 
 import Logo from '../../Logo_4K_Transparent.png';
+import AdminReservations from '../Admin/AdminReservations/AdminReservations';
 
 const cookie = new Cookie();
 const messaging = getMessaging(app);
@@ -337,7 +338,7 @@ function AppWrapper() {
       }
     });
   
-  }, []);
+  }, [navigate]);
   
   return (
     <Routes>
@@ -352,7 +353,7 @@ function AppWrapper() {
       <Route path="/appointments" element={<Reservations />} />
       <Route path="/fast-booking" element={<FastBookingList />} />
       <Route path="/admin" element={<AdminPage />} />
-      <Route path="/admin-reservations" element={<Reservations />} />
+      <Route path="/admin-reservations" element={<AdminReservations />} />
     </Routes>
   );
 }

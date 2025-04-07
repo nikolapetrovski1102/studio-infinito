@@ -1,368 +1,616 @@
 import React, { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import {
   Input,
   Typography,
-  Select,
-  Option,
-  Popover,
-  PopoverHandler,
-  PopoverContent,
+  Button,
+  Dialog,
+  DialogHeader,
+  DialogBody,
+  DialogFooter
 } from "@material-tailwind/react";
-import { format, set } from "date-fns";
-import { DayPicker } from "react-day-picker";
-import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/solid";
 import FullScreenLoader from "../FullScrennLoader/FullScreenLoader";
-
 import { Axios } from "../Axios";
 import { Cookie } from "../Cookie"
 import Notification from "../Home/Notification";
+import { Upload } from "antd";
+import ResetPasswordModal from "./ResetPasswordModal";
+import { UploadOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 
 const axios = new Axios();
 const cookie = new Cookie();
 
 export default function UserDetails() {
-  const [date, setDate] = React.useState();
   const [notificationParams, setNotificationParams] = useState({
     message: "",
     type: "",
     description: ""
-  })
-  const [userData, setUserData] = React.useState({
+  });
+  
+  const [userData, setUserData] = useState({
+    id: 0,
     firstName: "",
     lastName: "",
     email: "",
-    country: "",
     gender: "",
-  })
+    phone: "",
+    userImage: "",
+  });
+  
+  const [originalUserData, setOriginalUserData] = useState(null);
   const [loading, setLoader] = useState(true);
-
+  const [changeInformation, setChangeInformation] = useState(true);
+  const [errors, setErrors] = useState({});
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [unsavedChangesDialog, setUnsavedChangesDialog] = useState(false);
+  const [navigationCallback, setNavigationCallback] = useState(null);
+  
   useEffect(() => {
-
-    axios.get(`User/user-details/${cookie.getCookie('user_id')}`).then((res) => {
-      if (res.status === 200 && res.data.status === 'success') {
-        console.log(res.data);
+    if (notificationParams.message !== "") {
+      setTimeout(() => {
+        setNotificationParams({message: "", type: "", description: ""});
+      }, 3000);
     }
-  }).catch( (err) =>{
-
-  }).finally(() => setLoader(false));
-
+  }, [notificationParams]);
+  
+  useEffect(() => {
+    axios.get(`UserDetails/${cookie.getCookie('user_id')}`).then((res) => {
+      if (res.status === 200 && res.data.status === 'success') {
+          const user_data = JSON.parse(res.data.user);
+          const userDataObj = {
+            id: parseInt(cookie.getCookie('user_id')),
+            firstName: user_data.full_name.split(" ")[0],
+            lastName: user_data.full_name.split(" ")[1],
+            email: user_data.email,
+            gender: user_data.gender,
+            phone: user_data.phone.slice(4),
+            userImage: user_data.userImage || "",
+          };
+          
+          setUserData(userDataObj);
+          setOriginalUserData(JSON.stringify(userDataObj));
+          
+          if (user_data.user_image) {
+            setAvatarPreview(user_data.user_image);
+          }
+      } else if (res.status === 200 && res.data.status === 'error') {
+        setNotificationParams({
+          message: res.data.message,
+          type: res.data.status,
+          description: ""
+        });
+      }
+    }).catch((err) => {
+      console.log(err);
+      setNotificationParams({
+        message: "Грешка при поврзување со серверот",
+        type: "error",
+        description: ""
+      });
+    }).finally(() => setLoader(false));
   }, []);
-
+  
+  // Check for unsaved changes when data changes
+  useEffect(() => {
+    if (originalUserData) {
+      const currentDataString = JSON.stringify({
+        ...userData,
+        userImage: undefined  // Exclude binary data from comparison
+      });
+      
+      const originalDataString = JSON.stringify({
+        ...JSON.parse(originalUserData),
+        userImage: undefined  // Exclude binary data from comparison
+      });
+      
+      setHasUnsavedChanges(
+        currentDataString !== originalDataString || avatarFile !== null
+      );
+    }
+  }, [userData, avatarFile, originalUserData]);
+  
+  // Add window beforeunload event listener
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = "";
+        return "";
+      }
+    };
+    
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+  
+  const handleUnsavedChangesConfirm = () => {
+    setUnsavedChangesDialog(false);
+    if (navigationCallback) {
+      navigationCallback();
+      setNavigationCallback(null);
+    }
+  };
+  
+  const handleUnsavedChangesCancel = () => {
+    setUnsavedChangesDialog(false);
+    setNavigationCallback(null);
+  };
+  
+  const validateField = (name, value) => {
+    let error = "";
+    
+    switch (name) {
+      case "firstName":
+        if (!value.trim()) error = "Име е задолжително.";
+        break;
+      case "lastName":
+        if (!value.trim()) error = "Презиме е задолжително.";
+        break;
+      case "email":
+        if (value && !/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(value)) {
+          error = "Невалидна емаил адреса.";
+        }
+        break;
+      case "phone":
+        if (!value) {
+          error = "Телефонскиот број е задолжителен.";
+        } else if (value.length !== 8) {
+          error = "Внесете точно 8 цифри по +389.";
+        }
+        break;
+      default:
+        break;
+    }
+    
+    return error;
+  };
+  
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    
+    // Clear error when field is edited
+    if (errors[name]) {
+      setErrors({
+        ...errors,
+        [name]: ""
+      });
+    }
+    
+    // Real-time field validation
+    const error = validateField(name, value);
+    if (error) {
+      setErrors({
+        ...errors,
+        [name]: error
+      });
+    }
+    
+    setUserData({
+      ...userData,
+      [name]: value
+    });
+  };
+  
+  const resizeImage = (file, maxWidth, maxHeight, callback) => {
+    const reader = new FileReader();
+    
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        
+        // Calculate the new dimensions
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+  
+        // Create a canvas and draw the resized image
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+  
+        // Convert canvas to Base64
+        const resizedBase64 = canvas.toDataURL("image/jpeg", 0.8); // 80% quality
+        callback(resizedBase64);
+      };
+    };
+  
+    reader.readAsDataURL(file);
+  };
+  
+  const handleAvatarChange = (info) => {
+    if (info.file.status === 'uploading') {
+      return;
+    }
+  
+    if (info.file.status === 'done') {
+      const file = info.file.originFileObj;
+      setAvatarFile(file);
+  
+      // Resize image before converting to Base64
+      resizeImage(file, 250, 250, (resizedBase64) => {
+        setUserData({ ...userData, userImage: resizedBase64 });
+        setAvatarPreview(resizedBase64);
+      });
+    }
+  };
+  
+  const validateAllFields = () => {
+    let newErrors = {};
+    
+    // Validate all fields
+    if (!userData.firstName.trim()) newErrors.firstName = "Име е задолжително.";
+    if (!userData.lastName.trim()) newErrors.lastName = "Презиме е задолжително.";
+    if (userData.email && !/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(userData.email)) {
+      newErrors.email = "Невалидна емаил адреса.";
+    }
+    if (!userData.phone) {
+      newErrors.phone = "Телефонскиот број е задолжителен.";
+    } else if (userData.phone.length !== 8) {
+      newErrors.phone = "Внесете точно 8 цифри по +389.";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+  
+  const handleSaveChanges = () => {
+    if (!validateAllFields()) {
+      setNotificationParams({
+        message: "Поправете ги грешките пред да зачувате",
+        type: "error",
+        description: ""
+      });
+      return;
+    }
+    
+    setLoader(true);
+    const formData = new FormData();
+    formData.append('id', String(userData.id));
+    formData.append('firstName', userData.firstName);
+    formData.append('lastName', userData.lastName);
+    formData.append('email', userData.email);
+    formData.append('gender', userData.gender);
+    formData.append('phone', `+389${userData.phone}`);
+    
+    if (avatarFile) {
+      formData.append('userImage', userData.userImage);
+    }else if (localStorage.getItem('user_image')){
+      formData.append('userImage', localStorage.getItem('user_image'))
+    }
+    
+    axios.multi_post(`UserDetails/update-user`, formData)
+      .then((res) => {
+        if (res.status === 200 && res.data.status === "success") {
+          setNotificationParams({
+            message: res.data.message,
+            type: res.data.status,
+            description: ""
+          });
+          localStorage.setItem("user_image", avatarPreview);
+          
+          // Update original data to match current data
+          setOriginalUserData(JSON.stringify({
+            ...userData,
+            userImage: avatarPreview ? avatarPreview : userData.userImage
+          }));
+          
+          setHasUnsavedChanges(false);
+          setAvatarFile(null);
+        } else {
+          setNotificationParams({
+            message: res.data.message,
+            type: res.data.status,
+            description: ""
+          });
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        setNotificationParams({
+          message: "Грешка при поврзување со серверот",
+          type: "error",
+          description: ""
+        });
+      })
+      .finally(() => setLoader(false));
+  };
+  
+  const handleCloseModal = () => {
+    setIsModalVisible(false);
+  };
+  
+  const uploadProps = {
+    name: 'avatar',
+    accept: 'image/*',
+    showUploadList: false,
+    beforeUpload: (file) => {
+      const isImage = file.type.startsWith('image/');
+      if (!isImage) {
+        setNotificationParams({
+          message: "Можете да прикачите само слики!",
+          type: "error",
+          description: ""
+        });
+      }
+      const isLt2M = file.size / 1024 / 1024 < 10;
+      if (!isLt2M) {
+        setNotificationParams({
+          message: "Сликата мора да биде помала од 10MB!",
+          type: "error",
+          description: ""
+        });
+      }
+      return isImage && isLt2M;
+    },
+    customRequest: ({ file, onSuccess }) => {
+      setTimeout(() => {
+        onSuccess("ok");
+      }, 0);
+    },
+    onChange: handleAvatarChange
+  };
+  
   return (
-    <section className="px-8 py-20 container mx-auto">
+    <section className="px-8 py-8 container mx-auto">
       {notificationParams.message && <Notification message={notificationParams.message} type={notificationParams.type} description={notificationParams.description} />}
-      <Typography variant="h5" color="blue-gray">
-        Basic Information
-      </Typography>
-      <Typography
-        variant="small"
-        className="text-gray-600 font-normal mt-1"
-      >
-        Update your profile information below.
-      </Typography>
-      <div className="flex flex-col mt-8">
-        <div className="mb-6 flex flex-col items-end gap-4 md:flex-row">
-          <div className="w-full">
-            <Typography
-              variant="small"
-              className="mb-2 font-medium dark:text-dark-text-primary"
-            >
-              First Name
-            </Typography>
-            <Input
-              size="lg"
-              placeholder="Emma"
-              labelProps={{
-                className: "hidden",
-              }}
-              className="w-full placeholder:opacity-100 focus:border-t-primary border-t-blue-gray-200 dark:text-dark-text-primary"
-            />
-          </div>
-          <div className="w-full">
-            <Typography
-              variant="small"
-              color="blue-gray"
-              className="mb-2 font-medium dark:text-dark-text-primary"
-            >
-              Last Name
-            </Typography>
-            <Input
-              size="lg"
-              placeholder="Roberts"
-              labelProps={{
-                className: "hidden",
-              }}
-              className="w-full placeholder:opacity-100 focus:border-t-primary border-t-blue-gray-200 dark:text-dark-text-primary"
-            />
-          </div>
+      
+      <div className="flex flex-col justify-start items-center mb-4">
+        <div>
+          <Typography variant="h5" className={`text-blue-gray-600 dark:text-blue-gray-50 font-bold`}>
+            Информации за вас
+          </Typography>
+          <Typography
+            variant="small"
+            className="text-blue-gray-600 dark:text-blue-gray-100 font-normal mt-1"
+          >
+            Имаш згрешено? Сакаш да го промениш?
+          </Typography>
         </div>
-        {/* <div className="mb-6 flex flex-col gap-4 md:flex-row">
-          <div className="w-full">
-            <Typography
-              variant="small"
-              color="blue-gray"
-              className="mb-2 font-medium"
-            >
-              I&apos;m
-            </Typography>
-            <Select
-              size="lg"
-              labelProps={{
-                className: "hidden",
-              }}
-              className="border-t-blue-gray-200 aria-[expanded=true]:border-t-primary"
-            >
-              <Option>Male</Option>
-              <Option>Female</Option>
-            </Select>
-          </div>
-          <div className="w-full">
-            <Typography
-              variant="small"
-              color="blue-gray"
-              className="mb-2 font-medium"
-            >
-              Birth Date
-            </Typography>
-            <Popover placement="bottom">
-              <PopoverHandler>
-                <Input
-                  size="lg"
-                  onChange={() => null}
-                  placeholder="Select a Date"
-                  value={date ? format(date, "PPP") : ""}
-                  labelProps={{
-                    className: "hidden",
-                  }}
-                  className="w-full placeholder:opacity-100 focus:border-t-primary border-t-blue-gray-200"
-                />
-              </PopoverHandler>
-              <PopoverContent>
-                <DayPicker
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  showOutsideDays
-                  className="border-0"
-                  classNames={{
-                    caption:
-                      "flex justify-center py-2 mb-4 relative items-center",
-                    caption_label: "text-sm !font-medium text-gray-900",
-                    nav: "flex items-center",
-                    nav_button:
-                      "h-6 w-6 bg-transparent hover:bg-blue-gray-50 p-1 rounded-md transition-colors duration-300",
-                    nav_button_previous: "absolute left-1.5",
-                    nav_button_next: "absolute right-1.5",
-                    table: "w-full border-collapse",
-                    head_row: "flex !font-medium text-gray-900",
-                    head_cell: "m-0.5 w-9 !font-normal text-sm",
-                    row: "flex w-full mt-2",
-                    cell: "text-gray-600 rounded-md h-9 w-9 text-center text-sm p-0 m-0.5 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-gray-900/20 [&:has([aria-selected].day-outside)]:text-white [&:has([aria-selected])]:bg-gray-900/50 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                    day: "h-9 w-9 p-0 !font-normal",
-                    day_range_end: "day-range-end",
-                    day_selected:
-                      "rounded-md bg-gray-900 text-white hover:bg-gray-900 hover:text-white focus:bg-gray-900 focus:text-white",
-                    day_today: "rounded-md bg-gray-200 text-gray-900",
-                    day_outside:
-                      "day-outside text-gray-500 opacity-50 aria-selected:bg-gray-500 aria-selected:text-gray-900 aria-selected:bg-opacity-10",
-                    day_disabled: "text-gray-500 opacity-50",
-                    day_hidden: "invisible",
-                  }}
-                  components={{
-                    IconLeft: ({ ...props }) => (
-                      <ChevronLeftIcon
-                        {...props}
-                        className="h-4 w-4 stroke-2"
-                      />
-                    ),
-                    IconRight: ({ ...props }) => (
-                      <ChevronRightIcon
-                        {...props}
-                        className="h-4 w-4 stroke-2"
-                      />
-                    ),
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="w-full">
-            <Typography
-              variant="small"
-              color="blue-gray"
-              className="mb-2 font-medium"
-            >
-              Day
-            </Typography>
-            <Select
-              size="lg"
-              labelProps={{
-                className: "hidden",
-              }}
-              className="border-t-blue-gray-200 aria-[expanded=true]:border-t-primary"
-            >
-              <Option>1</Option>
-              <Option>2</Option>
-              <Option>3</Option>
-              <Option>4</Option>
-              <Option>5</Option>
-              <Option>6</Option>
-              <Option>7</Option>
-              <Option>8</Option>
-              <Option>9</Option>
-              <Option>10</Option>
-              <Option>11</Option>
-              <Option>12</Option>
-              <Option>13</Option>
-              <Option>14</Option>
-              <Option>15</Option>
-              <Option>16</Option>
-              <Option>17</Option>
-              <Option>18</Option>
-              <Option>19</Option>
-              <Option>20</Option>
-              <Option>21</Option>
-              <Option>22</Option>
-              <Option>23</Option>
-              <Option>24</Option>
-              <Option>25</Option>
-              <Option>26</Option>
-              <Option>27</Option>
-              <Option>28</Option>
-              <Option>29</Option>
-              <Option>30</Option>
-            </Select>
-          </div>
-          <div className="w-full">
-            <Typography
-              variant="small"
-              color="blue-gray"
-              className="mb-2 font-medium"
-            >
-              Year
-            </Typography>
-            <Select
-              size="lg"
-              labelProps={{
-                className: "hidden",
-              }}
-              className="border-t-blue-gray-200 aria-[expanded=true]:border-t-primary"
-            >
-              <Option>2022</Option>
-              <Option>2021</Option>
-              <Option>2020</Option>
-            </Select>
-          </div>
-        </div> */}
-        <div className="mb-6 flex flex-col items-end gap-4 md:flex-row">
-          <div className="w-full">
-            <Typography
-              variant="small"
-              color="blue-gray"
-              className="mb-2 font-medium dark:text-dark-text-primary"
-            >
-              Email
-            </Typography>
-            <Input
-              size="lg"
-              placeholder="emma@mail.com"
-              labelProps={{
-                className: "hidden",
-              }}
-              className="w-full placeholder:opacity-100 focus:border-t-primary border-t-blue-gray-200 dark:text-dark-text-primary"
-            />
-          </div>
-          <div className="w-full">
-            <Typography
-              variant="small"
-              color="blue-gray"
-              className="mb-2 font-medium dark:text-dark-text-primary"
-            >
-              Confirm Email
-            </Typography>
-            <Input
-              size="lg"
-              placeholder="emma@mail.com"
-              labelProps={{
-                className: "hidden",
-              }}
-              className="w-full placeholder:opacity-100 focus:border-t-primary border-t-blue-gray-200 dark:text-dark-text-primary"
-            />
-          </div>
-        </div>
-        <div className="mb-6 flex flex-col items-end gap-4 md:flex-row">
-          {/* <div className="w-full">
-            <Typography
-              variant="small"
-              color="blue-gray"
-              className="mb-2 font-medium"
-            >
-              Location
-            </Typography>
-            <Input
-              size="lg"
-              placeholder="Florida, USA"
-              labelProps={{
-                className: "hidden",
-              }}
-              className="w-full placeholder:opacity-100 focus:border-t-primary border-t-blue-gray-200"
-            />
-          </div> */}
-          <div className="w-full">
-            <Typography
-              variant="small"
-              color="blue-gray"
-              className="mb-2 font-medium dark:text-dark-text-primary"
-            >
-              Phone Number
-            </Typography>
-            <Input
-              size="lg"
-              placeholder="+123 0123 456 789"
-              labelProps={{
-                className: "hidden",
-              }}
-              className="w-full placeholder:opacity-100 focus:border-t-primary border-t-blue-gray-200 dark:text-dark-text-primary"
-            />
-          </div>
-        </div>
-        {/* <div className="flex flex-col items-end gap-4 md:flex-row">
-          <div className="w-full">
-            <Typography
-              variant="small"
-              color="blue-gray"
-              className="mb-2 font-medium"
-            >
-              Language
-            </Typography>
-            <Input
-              size="lg"
-              placeholder="Language"
-              labelProps={{
-                className: "hidden",
-              }}
-              className="w-full placeholder:opacity-100 focus:border-t-primary border-t-blue-gray-200"
-            />
-          </div>
-          <div className="w-full">
-            <Typography
-              variant="small"
-              color="blue-gray"
-              className="mb-2 font-medium"
-            >
-              Skills
-            </Typography>
-            <Input
-              size="lg"
-              placeholder="Skills"
-              labelProps={{
-                className: "hidden",
-              }}
-              className="w-full placeholder:opacity-100 focus:border-t-primary border-t-blue-gray-200"
-            />
-          </div>
-        </div> */}
+
+        {hasUnsavedChanges && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-2 rounded-md flex items-center gap-2"
+          >
+            <ExclamationCircleOutlined />
+            <span>Немате незачувани промени</span>
+          </motion.div>
+        )}
       </div>
+      
+      {/* Avatar Section */}
+      <div className="flex flex-col items-center mb-6 mt-8">
+        <div className="w-32 h-32 mb-4 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-secondary">
+          {avatarPreview ? (
+            <img 
+              src={avatarPreview} 
+              alt="Профилна слика" 
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-400">
+              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                <path fillRule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+              </svg>
+            </div>
+          )}
+        </div>
+        {changeInformation && (
+          <Upload {...uploadProps}>
+            <Button 
+              icon={<UploadOutlined />}
+              className="bg-gray-400 text-gray-900 dark:bg-dark-button-primary dark:text-dark-text-primary w-full"
+            >
+              Промени профилна слика
+            </Button>
+          </Upload>
+        )}
+      </div>
+      <div className="flex flex-col">
+        <div className="mb-6 flex flex-col items-end gap-4 md:flex-row">
+          <div className="w-full">
+            <Typography
+              variant="small"
+              className="mb-2 font-medium dark:text-dark-text-primary"
+            >
+              Име
+            </Typography>
+            <Input
+              name="firstName"
+              value={userData.firstName}
+              onChange={handleInputChange}
+              disabled={!changeInformation}
+              size="lg"
+              error={!!errors.firstName}
+              labelProps={{
+                className: "hidden",
+              }}
+              className="w-full placeholder:opacity-100 focus:border-t-primary border-t-blue-gray-200 dark:text-dark-text-primary dark:bg-dark-secondary"
+            />
+            {errors.firstName && (
+              <motion.p
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="text-sm text-red-500 mt-1 mb-0"
+              >
+                {errors.firstName}
+              </motion.p>
+            )}
+          </div>
+          <div className="w-full">
+            <Typography
+              variant="small"
+              color="blue-gray"
+              className="mb-2 font-medium dark:text-dark-text-primary"
+            >
+              Презиме
+            </Typography>
+            <Input
+              name="lastName"
+              value={userData.lastName}
+              onChange={handleInputChange}
+              disabled={!changeInformation}
+              size="lg"
+              error={!!errors.lastName}
+              labelProps={{
+                className: "hidden",
+              }}
+              className="w-full placeholder:opacity-100 focus:border-t-primary border-t-blue-gray-200 dark:text-dark-text-primary dark:bg-dark-secondary"
+            />
+            {errors.lastName && (
+              <motion.p
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="text-sm text-red-500 mt-1 mb-0"
+              >
+                {errors.lastName}
+              </motion.p>
+            )}
+          </div>
+        </div>
+        <div className="mb-6 flex flex-col items-end gap-4 md:flex-row">
+          <div className="w-full">
+            <Typography
+              variant="small"
+              color="blue-gray"
+              className="mb-2 font-medium dark:text-dark-text-primary"
+            >
+              Пол
+            </Typography>
+              <Input
+                disabled={true}
+                size="lg"
+                labelProps={{
+                  className: "hidden",
+                }}
+                className="w-full placeholder:opacity-100 focus:border-t-primary border-t-blue-gray-200 dark:text-dark-text-primary dark:bg-dark-secondary"
+                value={userData.gender === 1 ? "Машко" : "Женско"}
+              />
+          </div>
+        </div>
+        <div className="mb-6 flex flex-col items-end gap-4 md:flex-row">
+          <div className="w-full">
+            <Typography
+              variant="small"
+              color="blue-gray"
+              className="mb-2 font-medium dark:text-dark-text-primary"
+            >
+              Е-Пошта
+            </Typography>
+            <Input
+              name="email"
+              value={userData.email}
+              onChange={handleInputChange}
+              disabled={!changeInformation}
+              size="lg"
+              error={!!errors.email}
+              labelProps={{
+                className: "hidden",
+              }}
+              className="w-full placeholder:opacity-100 focus:border-t-primary border-t-blue-gray-200 dark:text-dark-text-primary dark:bg-dark-secondary"
+            />
+            {errors.email && (
+              <motion.p
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="text-sm text-red-500 mt-1 mb-0"
+              >
+                {errors.email}
+              </motion.p>
+            )}
+          </div>
+        </div>
+        <div className="mb-6 flex flex-col items-end gap-4 md:flex-row">
+          <div className="w-full">
+            <Typography
+              variant="small"
+              color="blue-gray"
+              className="mb-2 font-medium dark:text-dark-text-primary"
+            >
+              Телефонски Број
+            </Typography>
+            <div className="relative flex w-full">
+              <div className="flex items-center bg-blue-gray-500/10 rounded-l-md px-3">
+                <span className="text-blue-gray-700 dark:text-dark-text-primary">+389</span>
+              </div>
+              <Input
+                name="phone"
+                type="tel"
+                maxLength={8}
+                placeholder="Mobile Number"
+                value={userData.phone}
+                onChange={handleInputChange}
+                disabled={!changeInformation}
+                error={!!errors.phone}
+                className="w-full placeholder:opacity-100 focus:border-t-primary border-t-blue-gray-200 dark:text-dark-text-primary dark:bg-dark-secondary"
+              />
+            </div>
+            {errors.phone && (
+              <motion.p
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="text-sm text-red-500 mt-1 mb-0"
+              >
+                {errors.phone}
+              </motion.p>
+            )}
+          </div>
+        </div>
+        <div className="mb-6 flex flex-col items-start gap-4 md:flex-row">
+          <a onClick={() => setIsModalVisible(true)} className={`underline text-blue-500 cursor-pointer`}>Променете Лозинка</a>
+        </div>
+        <div className="mb-6 flex flex-col items-start gap-4 md:flex-row">
+          <Button
+              className={`mt-6 ${hasUnsavedChanges 
+                ? "bg-blue-500 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-800" 
+                : "bg-gray-400 text-gray-900 dark:bg-dark-button-primary dark:text-dark-text-primary hover:bg-gray-700 dark:hover:bg-dark-button-hover"}`}
+              disabled={!changeInformation || (!hasUnsavedChanges && Object.keys(errors).length === 0)}
+              onClick={handleSaveChanges}
+          >
+            Зачувај промени
+          </Button>
+        </div>
+      </div>
+      
+      {/* Unsaved Changes Dialog */}
+      <Dialog open={unsavedChangesDialog} handler={setUnsavedChangesDialog}>
+        <DialogHeader>Незачувани промени</DialogHeader>
+        <DialogBody>
+          Имате незачувани промени. Дали сакате да продолжите без да ги зачувате?
+        </DialogBody>
+        <DialogFooter>
+          <Button 
+            variant="text" 
+            color="red" 
+            onClick={handleUnsavedChangesCancel} 
+            className="mr-1"
+          >
+            Откажи
+          </Button>
+          <Button variant="gradient" color="green" onClick={handleUnsavedChangesConfirm}>
+            Продолжи без зачувување
+          </Button>
+        </DialogFooter>
+      </Dialog>
+      
+      <ResetPasswordModal isOpen={isModalVisible} onClose={handleCloseModal}/>
       <FullScreenLoader loading={loading} />
     </section>
   );

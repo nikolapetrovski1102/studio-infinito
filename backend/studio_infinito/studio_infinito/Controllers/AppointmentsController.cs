@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using studio_infinito.DTOs;
+using studio_infinito.DTOs.AppointmentsDTOs;
+using studio_infinito.DTOs.ServiceDTOs;
 using studio_infinito.Services;
 
 namespace studio_infinito.Controllers
@@ -77,8 +78,32 @@ namespace studio_infinito.Controllers
             {
                 return StatusCode(500, ex.Message);
             }
-
         }
 
+        [HttpPost("cancel-appointment")]
+        public async Task<IActionResult> CancelAppointment([FromBody] CancelAppointmentDTO cancelAppointmentDto)
+        {
+            try
+            {
+                return Ok(await _appointmentsService.CancelAppointmentAsync(cancelAppointmentDto));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        [HttpGet("admin-appointments")]
+        public async Task<IActionResult> GetAdminAppointments([FromQuery] string filter = null, [FromQuery] string startDate = null, [FromQuery] string endDate = null)
+        {
+            try
+            {
+                return Ok(await _appointmentsService.GetAdminAppointments(filter, startDate, endDate));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
     }
 }

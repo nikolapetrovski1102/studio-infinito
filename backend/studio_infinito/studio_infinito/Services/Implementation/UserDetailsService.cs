@@ -1,9 +1,14 @@
-﻿using DTOs;
+﻿using studio_infinito.DTOs.UserDetailsDTOs;
+using System.Text.Json;
 using MySql.Data.MySqlClient;
 using studio_infinito.Data;
 using studio_infinito.DTOs;
 using System.Security.Cryptography;
 using System.Text;
+using System.Drawing.Imaging;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using SkiaSharp;
 
 namespace studio_infinito.Services.Implementation
 {
@@ -29,13 +34,13 @@ namespace studio_infinito.Services.Implementation
                     new MySqlParameter[] {
                         new MySqlParameter("@Id", MySqlDbType.Int32) { Value = userID }
                     });
-                if(user == null)
+                if(user.Count == 0)
                 {
-                    return new Dictionary<string, string> { { "status", "error" }, { "message", $"Корисникот не е пронајден" } };
+                    return new Dictionary<string, string> { { "status", "error" }, { "message", "Корисникот не е пронајден" } };
                 }
                  
 
-                return new Dictionary<string, string> { { "status", "success" }, { "user", user.First().ToString() } };  // user[0].toString vo message;
+                return new Dictionary<string, string> { { "status", "success" }, { "user",  JsonSerializer.Serialize(user[0]) } };
 
             }
             catch(Exception ex)
@@ -45,20 +50,10 @@ namespace studio_infinito.Services.Implementation
         }
 
 
-        public async Task<Dictionary<string, string>> UpdateUser(UserDetailsDTO user)
+        public async Task<Dictionary<string, string>> UpdateUserAsync(UserDetailsDTO user)
         {
             try
             {
-                // PRVA OPCIJA TUTO KOMPLETO 
-                //var existingUser = await _context.ExecuteSqlQuery(
-                //    "SELECT * FROM users WHERE phone = @Phone OR email = @Email " +
-                //    "AND id NOT IN (SELECT id FROM users WHERE (phone = @Phone AND email != @Email) OR (email = @Email AND phone != @Phone))", // subquery za da proveri dali ima isti tel ili email (radi na nikola inatot magareshki)
-                //    new MySqlParameter[] {
-                //new MySqlParameter("@Phone", MySqlDbType.VarChar) { Value = user.phone },
-                //new MySqlParameter("@Email", MySqlDbType.VarChar) { Value = user.email }
-                //    }
-                //);
-
                 //VOTRA OPCIJA AMA SO POVEKJE QUERIES I CUSTOM ERRORS. BIRAJ 
                 var existingUser = await _context.ExecuteSqlQuery(
                     "SELECT * FROM users WHERE user_id = @Id", 
@@ -67,37 +62,33 @@ namespace studio_infinito.Services.Implementation
                     }
                 );
 
-                var existingEmail = await _context.ExecuteSqlQuery(
-                    "SELECT * FROM users WHERE email = @Email AND user_id != @Id",
-                    new MySqlParameter[] {
-                new MySqlParameter("@Email", MySqlDbType.VarChar) { Value = user.email },
-                new MySqlParameter("@Id", MySqlDbType.Int32) { Value = existingUser.First()["user_id"]}
+                var existingEmailorPhone = await _context.ExecuteSqlQuery(
+                    "SELECT * FROM users WHERE user_id != @Id AND (email = @Email OR phone = @Phone)",
+                    new MySqlParameter[]
+                    {
+                        new MySqlParameter("@Email", MySqlDbType.VarChar) { Value = user.email },
+                        new MySqlParameter("@Phone", MySqlDbType.VarChar) { Value = user.phone },
+                        new MySqlParameter("@Id", MySqlDbType.Int32) { Value = existingUser.First()["user_id"] }
                     }
                 );
 
-                if (existingEmail != null && existingEmail.Any())
+                if (existingEmailorPhone != null && existingEmailorPhone.Any())
                 {
-                    throw new Exception("Email already exists");
+                    return new Dictionary<string, string>() {  { "status", "warning" }, { "message", "Е-пошта или телефонот веќе постојат" } };
                 }
 
-                var existingPhone = await _context.ExecuteSqlQuery(
-                    "SELECT * FROM users WHERE phone = @Phone AND user_id != @Id",
-                    new MySqlParameter[] {
-                new MySqlParameter("@Phone", MySqlDbType.VarChar) { Value = user.phone },
-                new MySqlParameter("@Id", MySqlDbType.Int32) { Value = existingUser.First()["user_id"]}
-                    }
-                );
-
-                if (existingUser != null && existingUser.Any())
+                if (existingUser.Any() || existingUser.Count > 0)
                 {
-                    var updateUserQuery = "UPDATE users SET full_name = @Name, phone = @Phone, email = @Email WHERE user_id = @Id";
+                    var updateUserQuery = "UPDATE users SET full_name = @Name, phone = @Phone, email = @Email, user_image = @Image WHERE user_id = @Id";
                     await _context.ExecuteSqlQuery(
                         updateUserQuery,
                         new MySqlParameter[] {
-                    new MySqlParameter("@Name", MySqlDbType.VarChar) { Value = user.firstName + " " + user.lastName },
-                    new MySqlParameter("@Phone", MySqlDbType.VarChar) { Value = user.phone },
-                    new MySqlParameter("@Email", MySqlDbType.VarChar) { Value = user.email },
-                    new MySqlParameter("@Id", MySqlDbType.Int32) { Value = existingUser.First()["user_id"]}
+                            new MySqlParameter("@Name", MySqlDbType.VarChar) { Value = user.firstName + " " + user.lastName },
+                            new MySqlParameter("@Phone", MySqlDbType.VarChar) { Value = user.phone },
+                            new MySqlParameter("@Email", MySqlDbType.VarChar) { Value = user.email },
+                            new MySqlParameter("@Id", MySqlDbType.Int32) { Value = existingUser.First()["user_id"]},
+                            new MySqlParameter("@Image", MySqlDbType.String) { Value = user.userImage}
+                            
                         }
                     );
                 }
@@ -114,8 +105,6 @@ namespace studio_infinito.Services.Implementation
             }
         }
 
-        //TREBA ODOBRUVANJE OD NIKOLA
-
         private string HashPassword(string password)
         {
             using var sha256 = SHA256.Create();
@@ -123,41 +112,42 @@ namespace studio_infinito.Services.Implementation
             return Convert.ToBase64String(hashedBytes);
         }
 
-        // dictionaryt da vrakja 
-        public async Task<bool> UpdateUserPassword(UserDetailsDTO user, string newPassword)
+        public async Task<Dictionary<string, string>> UpdateUserPassword(int user_id, string newPassword)
         {
             try
             {
                 var existingUser = await _context.ExecuteSqlQuery("SELECT * FROM users WHERE user_id = @Id",
                     new MySqlParameter[] {
-                        new MySqlParameter("@Id", MySqlDbType.Int32) { Value = user.id }});
+                        new MySqlParameter("@Id", MySqlDbType.Int32) { Value = user_id }});
 
                 if (existingUser != null && existingUser.Any())
                 {
                     string oldPasswordHashed = existingUser.First()["password_hash"].ToString();
                     string newPasswordHashed = HashPassword(newPassword);
-                    if (oldPasswordHashed.Equals(newPasswordHashed)) throw new Exception("Ве молиме да внесете нова лозинка, различна од старата.");
+                    if (oldPasswordHashed.Equals(newPasswordHashed)) 
+                        return new Dictionary<string, string>() { { "status", "warning" }, { "message", "Ве молиме да внесете нова лозинка, различна од старата." } };
 
-
-                    var updateUserQuery = "UPDATE users SET password_hash = @Password WHERE id = @Id";
+                    
+                    var updateUserQuery = "UPDATE users SET password_hash = @Password WHERE user_id = @Id";
                     await _context.ExecuteSqlQuery(
                         updateUserQuery,
                         new MySqlParameter[] {
-                    new MySqlParameter("@Password", MySqlDbType.VarChar) { Value = newPasswordHashed },
-                    new MySqlParameter("@Id", MySqlDbType.Int32) { Value = existingUser.First()["id"]}
+                            new MySqlParameter("@Password", MySqlDbType.VarChar) { Value = newPasswordHashed },
+                            new MySqlParameter("@Id", MySqlDbType.Int32) { Value = existingUser.First()["user_id"]}
                         }
                     );
                 }
-                else throw new Exception("Корисникот не може да биде пронајден");
+                else 
+                    return new Dictionary<string, string>() { { "status", "error" }, { "message", "Грешка при ажурирање на лозинка" } };
 
-                return true;
+                return new Dictionary<string, string>() { { "status", "success" }, { "message", "Успешно ажурирање на лозинка" } };
             }
             catch (Exception ex)
             {
                 throw new Exception(ex.Message);
             }
         }
-
+        
         //public async Task<Dictionary<string, string>> UpdateUserById(int userID, UserDetailsDTO newUser)
         //{
         //    try

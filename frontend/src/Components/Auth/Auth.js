@@ -7,6 +7,8 @@ import Recaptcha from "./Recaptcha";
 import { Axios } from "../Axios";
 import Notification from "../Home/Notification";
 import { Cookie } from "../Cookie";
+import ForgotPasswordModal from "./ForgotPasswordModal";
+import { is } from "date-fns/locale/is";
 
 const axios = new Axios();
 const cookie = new Cookie();
@@ -23,9 +25,11 @@ export default function Auth() {
     message : "",
     type : "",
   });
+  const [isOpen, setIsOpen] = useState(false);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
 
   useEffect( () => {
+
     if (isTooltipOpen) {
       setTimeout(() => {
         setIsTooltipOpen(false);
@@ -34,10 +38,15 @@ export default function Auth() {
   }, [isTooltipOpen])
 
   useEffect( () => {
-    if (cookie.getCookie("access_token")) {
+    const access_token = cookie.getCookie("access_token");
+    const user_role = cookie.getCookie("user_role");
+
+    if (access_token && user_role == 'customer') {
       navigate("/home");
+    }else if (access_token && user_role == 'admin') {
+      navigate("/admin");
     }
-  })
+  }, [])
 
   const handleAuth = async () => {
     setLoading(true);
@@ -53,10 +62,14 @@ export default function Auth() {
       .then((res) => {
 
         if (res.status === 200 && res.data.status === 'success') {
+          const redirect_ulr = res.data.redirect;
           const parsedData = JSON.parse(res.data.message);
+          const user_details = JSON.parse(parsedData.user_details);
           cookie.setCookie("access_token", parsedData.access_token, parsedData.valid_to);
-          cookie.setCookie("user_id", parsedData.user_id, parsedData.valid_to);
-  
+          cookie.setCookie("user_id", user_details.user_id, parsedData.valid_to);
+          cookie.setCookie("user_role", user_details.user_role, parsedData.valid_to);
+          localStorage.setItem("user_image", user_details.user_image);
+
           axios.setAccessToken(parsedData.access_token);
 
           setNotification({
@@ -66,7 +79,11 @@ export default function Auth() {
 
           setLoading(false);
           setTimeout( () => {
-            navigate("/home");
+            if (redirect_ulr){
+              navigate(redirect_ulr);
+            }else{
+              navigate("/home");
+            }
           }, 700)
         } else {
           setIsTooltipOpen(true);
@@ -131,7 +148,7 @@ export default function Auth() {
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                   strokeWidth={2}
-                  className="h-5 w-5 cursor-pointer text-blue-gray-500 mb-4"
+                  className="h-5 w-5 cursor-pointer text-blue-gray-500"
                 >
                   <path
                     strokeLinecap="round"
@@ -180,7 +197,7 @@ export default function Auth() {
             Најави се
           </Button>
           <div className="!mt-4 flex justify-end">
-            <Typography as="a" href="#" color="blue-gray" variant="small" className="font-medium dark:text-dark-text-secondary">
+            <Typography onClick={() => {setIsOpen(true)}} as="a" href="#" color="blue-gray" variant="small" className="font-medium dark:text-dark-text-secondary">
               Заборави лозинка?
             </Typography>
           </div>
@@ -188,6 +205,7 @@ export default function Auth() {
         </form>
       </div>
       <FullScreenLoader loading={loading} />
+      <ForgotPasswordModal isOpen={isOpen} onClose={() => setIsOpen(false)} />
     </section>
   );
 }

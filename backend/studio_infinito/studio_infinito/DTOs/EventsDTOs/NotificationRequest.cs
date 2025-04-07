@@ -1,4 +1,4 @@
-﻿namespace studio_infinito.DTOs
+﻿namespace studio_infinito.DTOs.EventDTOs
 {
     public class NotificationRequest
     {
@@ -7,5 +7,4 @@
         public string Body { get; set; }
         public string iconUrl { get; set; }
     }
-
 }

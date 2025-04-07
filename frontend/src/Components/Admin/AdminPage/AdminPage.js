@@ -30,7 +30,7 @@ export default function AdminPage() {
     return (
         <section
             id="image-container"
-            className={`flex flex-col justify-center items-center p-0 mt-2 h-full bg-white dark:bg-dark-primary ${
+            className={`flex flex-col justify-center items-center p-0 mt-2 h-full bg-transparent dark:bg-dark-primary ${
                 loading ? "loading" : ""
             }`}
         >

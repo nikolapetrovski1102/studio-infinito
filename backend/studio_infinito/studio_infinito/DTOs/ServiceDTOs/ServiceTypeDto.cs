@@ -1,4 +1,4 @@
-﻿namespace studio_infinito.DTOs
+﻿namespace studio_infinito.DTOs.ServiceDTOs
 {
     public class ServiceTypeDto
     {

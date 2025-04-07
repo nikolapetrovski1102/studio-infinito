@@ -1,6 +1,6 @@
-﻿using studio_infinito.DTOs;
+﻿using studio_infinito.DTOs.AppointmentsDTOs;
 
-namespace studio_infinito.Events
+namespace studio_infinito.Events.Appointments
 {
     public delegate void AppointmentCreatedEventHandler(object sender, AppointmentEventArgs e);
 
@@ -18,7 +18,7 @@ namespace studio_infinito.Events
         {
             OnAppointmentCreated(appointmentDetails);
         }
-
+        
         // Protected method to raise the event
         protected virtual void OnAppointmentCreated(AppointmentDto appointmentDetails)
         {
@@ -28,5 +28,6 @@ namespace studio_infinito.Events
                 AppointmentDetails = appointmentDetails
             });
         }
+        
     }
 }

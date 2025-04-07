@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import { Typography, Input, Button } from "@material-tailwind/react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { DatePicker } from "antd";
-import dayjs from "dayjs";
-import GalleryImage from "./GalleryImage";
 
 import Logo from '../../Logo_4K_Transparent.png';
 

@@ -1,10 +1,10 @@
-﻿using studio_infinito.DTOs;
+﻿using studio_infinito.DTOs.AppointmentsDTOs;
 using System.Diagnostics;  // Ensure this is imported
 using System.Net;
 using System.Net.Mail;
 using System.Text;
 
-namespace studio_infinito.Events
+namespace studio_infinito.Events.Appointments
 {
     public class AppointmentCreatedEvent
     {
@@ -117,7 +117,17 @@ namespace studio_infinito.Events
                 string title = $"Здраво {appointmentDetails.UserName}";
                 string body = $"Вашата резервација на {appointmentDetails.Event.Date} од {appointmentDetails.Event.Time} е успешна";
 
-                await firebaseService.SendNotification(appointmentDetails.firebaseToken, title, body, "https://ts1k5rzt-3001.euw.devtunnels.ms/static/media/Logo_4K_Transparent.f8358b45d0ac78650da4.png");
+                if (!appointmentDetails.firebaseToken.Contains(','))
+                {
+                    await firebaseService.SendNotification(appointmentDetails.firebaseToken, title, body, "https://ts1k5rzt-3001.euw.devtunnels.ms/static/media/Logo_4K_Transparent.f8358b45d0ac78650da4.png");
+                }else if (appointmentDetails.firebaseToken.Contains(','))
+                {
+                    List<string> firebase_tokens = appointmentDetails.firebaseToken.Split(',').ToList();
+                    foreach (var firebase_token in firebase_tokens)
+                    {
+                        await firebaseService.SendNotification(firebase_token, title, body, "https://ts1k5rzt-3001.euw.devtunnels.ms/static/media/Logo_4K_Transparent.f8358b45d0ac78650da4.png");
+                    }
+                }
             }
             catch (Exception ex)
             {

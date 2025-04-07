@@ -59,7 +59,6 @@ export default function FastBookingList() {
         if (loading) return;
         setLoading(true);
 
-        console.log("Loading more appointments...");
         const nextPageData = { ...requestData, page_number: pageNumber + 1 };
 
         axios.post("Appointments/fast-booking", nextPageData)
@@ -96,10 +95,10 @@ export default function FastBookingList() {
     return (
         <div className="w-full lg:w-2/4 m-auto mt-10">
             <FullScreenLoader loading={loading} />
-            <Typography variant="h5" className="font-bold mb-4 text-gray-800 dark:text-dark-text-primary">
+            <Typography variant="h5" className="font-bold mb-4 text-gray-800 dark:text-dark-text-primary pl-3">
                 {`Слободни најбрзи термини`}
             </Typography>
-            <div className="bg-white dark:bg-dark-secondary border gap-4 border-gray-200 dark:border-gray-700 rounded-lg p-10">
+            <div className="bg-gray-200/70 dark:bg-gray-800/20 backdrop-blur-lg border gap-4 border-gray-200 dark:border-gray-700 rounded-lg p-10">
                 {Object.entries(groupedEvents).length > 0 ? (
                     Object.entries(groupedEvents).map(([date, times], index) => (
                         <div key={index}>

@@ -5,6 +5,7 @@ export default function Notification({ message, type, description = "" }) {
 
   // Reset show state when message changes
   useEffect(() => {
+    console.log(message);
     if (message) {
       setShow(true);
     }
@@ -110,7 +111,7 @@ export default function Notification({ message, type, description = "" }) {
   if (!message || !type || !show) return null;
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 sm:bottom-4 sm:left-4 sm:translate-x-0 flex flex-col gap-2 w-[70%] sm:w-[350px] text-[10px] sm:text-xs z-50">
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 sm:bottom-4 sm:left-4 sm:translate-x-0 flex flex-col gap-2 w-[90%] sm:w-[350px] text-[10px] sm:text-xs z-50">
       <div className="cursor-default flex items-center w-full h-auto min-h-16 sm:min-h-14 rounded-lg bg-gray-200 dark:bg-[#232531] px-[10px] py-2 shadow-lg">
         
         {/* SVG Icon - 15% */}
@@ -120,7 +121,7 @@ export default function Notification({ message, type, description = "" }) {
         
         {/* Message & Description - 70% */}
         <div className="flex-[70%] flex flex-col gap-1">
-          <p className={`m-2 text-black dark:text-white ${description ? "text-md" : "text-md"}`}>{message}</p>
+          <p className={`m-2 text-black dark:text-white ${description ? "text-md" : "text-[0.9rem]"}`}>{message}</p>
           {description && <p className=" text-gray-600 dark:text-gray-500">{description}</p>}
         </div>
         

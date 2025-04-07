@@ -38,7 +38,7 @@ export function StepperWithContent(props) {
             <Typography
               className={`font-normal text-[0.4rem] transition-all md:text-base ${
                 props.activeStep === 0 
-                  ? "text-gray-800 dark:text-dark-text-primary text-[0.7rem]"
+                  ? "text-gray-800 dark:text-dark-text-primary text-[0.75rem]"
                   : "text-gray-500 dark:text-dark-text-secondary"
               }`}
             >
@@ -62,7 +62,7 @@ export function StepperWithContent(props) {
             <Typography
               className={`font-normal text-[0.4rem] transition-all md:text-base ${
                 props.activeStep === 1 
-                  ? "text-gray-800 dark:text-dark-text-primary text-[0.7rem]" 
+                  ? "text-gray-800 dark:text-dark-text-primary text-[0.75rem]" 
                   : "text-gray-500 dark:text-dark-text-secondary"
               }`}
             >
@@ -86,11 +86,11 @@ export function StepperWithContent(props) {
             <Typography
               className={`font-normal text-[0.4rem] transition-all md:text-base ${
                 props.activeStep === 2 
-                  ? "text-gray-800 dark:text-dark-text-primary text-[0.7rem]" 
+                  ? "text-gray-800 dark:text-dark-text-primary text-[0.75rem]" 
                   : "text-gray-500 dark:text-dark-text-secondary"
               }`}
             >
-              Избери датум и час.
+              Избери датум и час
             </Typography>
           </div>
         </Step>

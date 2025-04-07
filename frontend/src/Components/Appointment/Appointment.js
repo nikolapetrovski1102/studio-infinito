@@ -21,8 +21,6 @@ export default function Appointment() {
     const [services, setServices] = useState([]);
     const [appointmentData, setAppointmentData] = useState({});
 
-    const navigate = useNavigate();
-
     const employees = ["Александар", "Марина"];
 
     useEffect(() => {

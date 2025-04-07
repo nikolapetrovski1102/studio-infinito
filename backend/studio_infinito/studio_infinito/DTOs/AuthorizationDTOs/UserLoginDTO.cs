@@ -1,4 +1,4 @@
-namespace DTOs
+namespace studio_infinito.DTOs.AuthorizationDTOs
 {
     public class UserLoginDTO
     {

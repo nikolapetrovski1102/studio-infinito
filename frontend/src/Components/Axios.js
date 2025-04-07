@@ -39,6 +39,16 @@ export class Axios {
         });
     }
 
+    async multi_post(url, body) {
+        return await axios.post(`${process.env.REACT_APP_API_URL}${url}`, body, {
+            headers: {
+                'Authorization': 'Bearer ' + this.getAccessToken(),
+                'ngrok-skip-browser-warning': 'true',
+                'Content-Type': 'multipart/form-data'
+            },
+        });
+    }
+
     async register(url, body) {
         return await axios.post(`${process.env.REACT_APP_API_URL}${url}`, body, {
             headers: {

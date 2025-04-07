@@ -1,4 +1,6 @@
-﻿namespace studio_infinito.DTOs
+﻿using studio_infinito.DTOs.ServiceDTOs;
+
+namespace studio_infinito.DTOs.AppointmentsDTOs
 {
     public class AppointmentDataDto
     {

@@ -1,4 +1,4 @@
-﻿using DTOs;
+﻿using studio_infinito.DTOs.AuthorizationDTOs;
 using Microsoft.AspNetCore.Mvc;
 using studio_infinito.Services;
 
@@ -47,5 +47,45 @@ namespace studio_infinito.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDTO forgotPasswordRequestDto)
+        {
+            try
+            {
+                return Ok(await _authService.ForgotPasswordAsync(forgotPasswordRequestDto.Email, forgotPasswordRequestDto.phoneNumber));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        [HttpPost("verify-token")]
+        public async Task<IActionResult> VerifyToken([FromBody] ForgotPasswordRequestDTO forgotPasswordRequestDto)
+        {
+            try
+            {
+                return Ok(await _authService.VerifyTokenAsync(forgotPasswordRequestDto.Email, forgotPasswordRequestDto.phoneNumber, forgotPasswordRequestDto.Token));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+        
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ForgotPasswordRequestDTO forgotPasswordRequestDto)
+        {
+            try
+            {
+                return Ok(await _authService.ResetPasswordAsync(forgotPasswordRequestDto.Email, forgotPasswordRequestDto.phoneNumber, forgotPasswordRequestDto.Password));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+        
     }
 }
